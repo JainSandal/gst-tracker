@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GST Tracker</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --navy:#1F3A5F; --teal:#2A9D8F; --amber:#E9C46A;
+  --green:#2E7D32; --red:#C62828; --orange:#B26A00; --grey:#9E9E9E;
+  --bg:#F5F7FA; --card:#FFFFFF; --border:#E2E6EC; --text:#1A1F29; --sub:#5B6472;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+header{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.3px;}
+header .sub{font-size:12px;color:#C9D6E8;}
+#connectBtn,#rescanBtn{background:var(--teal);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;}
+#connectBtn:hover,#rescanBtn:hover{background:#238579;}
+#rescanBtn{background:#3C5D8A;}
+#rescanBtn:hover{background:#32507a;}
+#status{font-size:12px;color:#C9D6E8;margin-left:auto;text-align:right;}
+nav{background:#fff;border-bottom:1px solid var(--border);display:flex;padding:0 22px;}
+nav button{background:none;border:none;padding:14px 18px;font-size:14px;cursor:pointer;color:var(--sub);border-bottom:3px solid transparent;}
+nav button.active{color:var(--navy);border-bottom-color:var(--teal);font-weight:600;}
+.filterbar{display:flex;gap:14px;align-items:center;padding:12px 22px;background:#fff;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.filterbar label{font-size:12px;color:var(--sub);margin-right:6px;}
+.filterbar select{padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:13px;min-width:120px;}
+.filterbar .spacer{flex:1;}
+.pill{font-size:12px;background:#EEF2F7;padding:5px 10px;border-radius:14px;color:var(--sub);}
+main{padding:20px 22px 60px;max-width:1400px;margin:0 auto;}
+.page{display:none;}
+.page.active{display:block;}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.kpi .label{font-size:12px;color:var(--sub);margin-bottom:6px;}
+.kpi .value{font-size:22px;font-weight:700;color:var(--navy);}
+.kpi .value.red{color:var(--red);} .kpi .value.green{color:var(--green);} .kpi .value.amber{color:var(--orange);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;}
+.chartcard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.chartcard h3{margin:0 0 10px;font-size:14px;color:var(--navy);}
+.chartcard canvas{max-height:260px;}
+table.datatbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;}
+table.datatbl th{background:#EEF2F7;color:var(--navy);text-align:right;padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;}
+table.datatbl th:first-child,table.datatbl td:first-child{text-align:left;}
+table.datatbl td{padding:7px 10px;text-align:right;border-bottom:1px solid #F0F2F5;white-space:nowrap;}
+table.datatbl tr:last-child td{font-weight:700;background:#FAFBFD;border-top:2px solid var(--border);}
+.status-ok{color:var(--green);font-weight:600;}
+.status-bad{color:var(--red);font-weight:600;}
+.status-pend{color:var(--orange);font-weight:600;}
+.status-na{color:var(--grey);}
+.tablewrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:18px;}
+.empty{padding:60px 20px;text-align:center;color:var(--sub);}
+.empty h2{color:var(--navy);}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.badge.green{background:#E6F4EA;color:var(--green);}
+.badge.red{background:#FDEAEA;color:var(--red);}
+.badge.amber{background:#FDF2DC;color:var(--orange);}
+.badge.grey{background:#EEE;color:var(--grey);}
+footer{text-align:center;font-size:11px;color:var(--sub);padding:20px;}
+#log{font-size:11px;color:var(--sub);max-width:420px;max-height:60px;overflow:auto;}
+.toolbar{display:flex;gap:8px;margin-bottom:14px;}
+.btn-sm{background:#fff;border:1px solid var(--border);color:var(--navy);padding:7px 13px;border-radius:6px;font-size:12.5px;cursor:pointer;font-weight:500;}
+.btn-sm:hover{background:#EEF2F7;}
+#reloadAllBtn{background:#8A4B3B;}
+#reloadAllBtn:hover{background:#753f32;}
+
+/* ---- PDF export (print) ---- */
+.print-only{display:none;}
+.printHead h1{font-size:18px;color:var(--navy);margin:0 0 4px;}
+.printMeta{font-size:12px;color:var(--sub);margin-bottom:14px;}
+.printCharts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.printChart{max-width:48%;border:1px solid var(--border);border-radius:4px;}
+@media print{
+  body.printing-pdf > *:not(#printArea){display:none !important;}
+  body.printing-pdf #printArea{display:block !important;}
+  body.printing-pdf *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body.printing-pdf table.datatbl{font-size:10px;}
+  body.printing-pdf table.datatbl tr{page-break-inside:avoid;}
+  @page{margin:14mm;}
+}
+
+/* ---- Mobile (phones / narrow tablets) ---- */
+@media (max-width: 760px){
+  header{padding:12px 14px;gap:10px;}
+  header h1{font-size:16px;}
+  header .sub{font-size:11px;}
+  #connectBtn,#rescanBtn,#reloadAllBtn{padding:9px 12px;font-size:12.5px;flex:1 1 auto;min-width:0;}
+  #status{margin-left:0;width:100%;text-align:left;font-size:11px;}
+  nav{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 10px;}
+  nav button{padding:11px 14px;font-size:13px;white-space:nowrap;}
+  .filterbar{padding:10px 14px;gap:10px;}
+  .filterbar > div{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
+  .filterbar select{width:100%;}
+  .filterbar label{margin-right:0;}
+  main{padding:14px 12px 50px;}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .kpi .value{font-size:18px;}
+  .card{padding:12px;}
+  .grid2{grid-template-columns:1fr;gap:12px;}
+  .chartcard{padding:12px;}
+  .chartcard canvas{max-height:220px;}
+  .toolbar{flex-wrap:wrap;}
+  .toolbar .btn-sm{flex:1 1 150px;text-align:center;}
+  table.datatbl{font-size:11.5px;}
+  table.datatbl th,table.datatbl td{padding:6px 8px;}
+}
+@media (max-width: 420px){
+  .kpis{grid-template-columns:1fr 1fr;}
+  header h1{font-size:15px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>GST Tracker</h1>
+    <div class="sub">Sales &amp; Purchases/ITC dashboard — reads GSTR-1 / GSTR-3B PDFs straight from your OneDrive folder</div>
+  </div>
+  <button id="connectBtn">Connect GST folder</button>
+  <button id="rescanBtn" style="display:none;" title="Parses only new or changed PDFs">Check for new files</button>
+  <button id="reloadAllBtn" style="display:none;" title="Re-parses every PDF from scratch">Reload all files</button>
+  <div id="status">Not connected</div>
+</header>
+
+<nav>
+  <button class="tab active" data-page="sales">Sales</button>
+  <button class="tab" data-page="itc">Purchases &amp; ITC</button>
+  <button class="tab" data-page="check">Data Check</button>
+</nav>
+
+<div class="filterbar">
+  <div><label>Entity</label><select id="entitySel"><option value="ALL">All entities</option></select></div>
+  <div><label>Financial Year</label><select id="fySel"></select></div>
+  <span class="pill" id="asOfPill">Latest filed: —</span>
+  <div class="spacer"></div>
+  <label style="font-size:12px;"><input type="checkbox" id="autoRefresh"> Auto-rescan every 60s</label>
+</div>
+
+<main>
+
+  <!-- ============ SALES PAGE ============ -->
+  <section class="page active" id="page-sales">
+    <div id="salesEmpty" class="empty"><h2>No data yet</h2><p>Click "Connect GST folder" above and select your GST root folder.</p></div>
+    <div id="salesContent" style="display:none;">
+      <div class="toolbar">
+        <button class="btn-sm" onclick="exportExcel('sales')">⬇ Download Excel</button>
+        <button class="btn-sm" onclick="downloadPDF('sales')">⬇ Download PDF</button>
+      </div>
+      <div class="kpis">
+        <div class="card kpi"><div class="label">GSTR-1 Sales (cum. FY)</div><div class="value" id="k1">—</div></div>
+        <div class="card kpi"><div class="label">GSTR-3B Sales (cum. FY)</div><div class="value" id="k2">—</div></div>
+        <div class="card kpi"><div class="label">Cumulative Variance</div><div class="value" id="k3">—</div></div>
+        <div class="card kpi"><div class="label">GSTR-1 Tax (cum. FY)</div><div class="value" id="k4">—</div></div>
+        <div class="card kpi"><div class="label">GSTR-3B Tax (cum. FY)</div><div class="value" id="k5">—</div></div>
+      </div>
+      <div class="grid2">
+        <div class="chartcard"><h3>Monthly Sales — GSTR-1 vs GSTR-3B</h3><canvas id="chartSalesMonthly"></canvas></div>
+        <div class="chartcard"><h3>Cumulative FY Sales (Apr–Mar)</h3><canvas id="chartSalesCum"></canvas></div>
+      </div>
+      <div class="grid2">
+        <div class="chartcard"><h3>GSTR-1 Tax Breakup (IGST / CGST / SGST)</h3><canvas id="chartTax1"></canvas></div>
+        <div class="chartcard"><h3>GSTR-3B Tax Breakup (IGST / CGST / SGST)</h3><canvas id="chartTax3"></canvas></div>
+      </div>
+      <div class="tablewrap"><div id="tblSales"></div></div>
+      <div class="tablewrap"><div id="tblTax"></div></div>
+    </div>
+  </section>
+
+  <!-- ============ ITC PAGE ============ -->
+  <section class="page" id="page-itc">
+    <div id="itcEmpty" class="empty"><h2>No data yet</h2><p>Click "Connect GST folder" above and select your GST root folder.</p></div>
+    <div id="itcContent" style="display:none;">
+      <div class="toolbar">
+        <button class="btn-sm" onclick="exportExcel('itc')">⬇ Download Excel</button>
+        <button class="btn-sm" onclick="downloadPDF('itc')">⬇ Download PDF</button>
+      </div>
+      <div class="kpis">
+        <div class="card kpi"><div class="label">ITC Claimed (cum. FY)</div><div class="value" id="i1">—</div></div>
+        <div class="card kpi"><div class="label">ITC Eligible / Net (cum. FY)</div><div class="value" id="i2">—</div></div>
+        <div class="card kpi"><div class="label">ITC Variance (Claimed − Eligible)</div><div class="value" id="i3">—</div></div>
+        <div class="card kpi"><div class="label">Purchases, GSTR-3B (cum. FY)</div><div class="value" id="i4">—</div></div>
+        <div class="card kpi"><div class="label">ITC Eligible %</div><div class="value" id="i5">—</div></div>
+      </div>
+      <div class="grid2">
+        <div class="chartcard"><h3>Monthly ITC — Claimed vs Eligible</h3><canvas id="chartItcMonthly"></canvas></div>
+        <div class="chartcard"><h3>Cumulative FY ITC (Apr–Mar)</h3><canvas id="chartItcCum"></canvas></div>
+      </div>
+      <div class="grid2">
+        <div class="chartcard"><h3>ITC Claimed — IGST / CGST / SGST</h3><canvas id="chartItcTax"></canvas></div>
+        <div class="chartcard"><h3>Purchases — Exempt/Nil, Non-GST, Reverse Charge</h3><canvas id="chartPurchases"></canvas></div>
+      </div>
+      <div class="tablewrap"><div id="tblItc"></div></div>
+    </div>
+  </section>
+
+  <!-- ============ DATA CHECK PAGE ============ -->
+  <section class="page" id="page-check">
+    <p style="color:var(--sub);font-size:13px;">Every PDF found under the connected folder, and whether it loaded correctly. Use this if a number on the Sales or ITC page looks wrong.</p>
+    <div class="toolbar">
+      <button class="btn-sm" onclick="exportExcel('check')">⬇ Download Excel</button>
+      <button class="btn-sm" onclick="downloadPDF('check')">⬇ Download PDF</button>
+    </div>
+    <div class="tablewrap"><div id="tblLog"></div></div>
+  </section>
+
+</main>
+
+<footer>GST Tracker — all parsing happens locally in your browser. No file is uploaded anywhere. <span id="log"></span></footer>
+
+<div id="printArea" class="print-only"></div>
+
+<script>
+/* ============================================================================
+   GST TRACKER — client-side GST return dashboard
+   Reads PDFs directly from a local folder via the File System Access API,
+   extracts figures with pdf.js, and renders everything with Chart.js.
+   Nothing is uploaded: every step below runs inside your own browser.
+   ========================================================================== */
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const MONTHS = [ // April -> March, fyMonthNo 1..12
+  {monthNo:4,name:"April",short:"Apr",fy:1}, {monthNo:5,name:"May",short:"May",fy:2},
+  {monthNo:6,name:"June",short:"Jun",fy:3}, {monthNo:7,name:"July",short:"Jul",fy:4},
+  {monthNo:8,name:"August",short:"Aug",fy:5}, {monthNo:9,name:"September",short:"Sep",fy:6},
+  {monthNo:10,name:"October",short:"Oct",fy:7}, {monthNo:11,name:"November",short:"Nov",fy:8},
+  {monthNo:12,name:"December",short:"Dec",fy:9}, {monthNo:1,name:"January",short:"Jan",fy:10},
+  {monthNo:2,name:"February",short:"Feb",fy:11}, {monthNo:3,name:"March",short:"Mar",fy:12}
+];
+const MONTH_KEYS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+const fyMonthNoOf = (m) => MONTHS.find(x=>x.monthNo===m)?.fy ?? null;
+
+let dataGSTR1 = [];   // extracted rows
+let dataGSTR3B = [];
+let loadLog = [];     // one row per PDF found, for the Data Check page
+let dirHandle = null;
+let charts = {};      // keyed by canvas id, so we can destroy/redraw on filter change
+let parseCache = new Map(); // key: path|size|lastModified -> parsed row (skips unchanged files on rescan)
+let lastSalesCalc = null;   // last-rendered Sales page numbers, reused by Excel/PDF export
+let lastItcCalc = null;     // last-rendered ITC page numbers, reused by Excel/PDF export
+
+// ---------------------------------------------------------------------------
+// Persistence (IndexedDB via idb-keyval) — keeps the last loaded dashboard
+// on screen the moment the file is reopened, without needing to rescan.
+// ---------------------------------------------------------------------------
+async function persistState(){
+  try{
+    await idbKeyval.set("gstData", {
+      dataGSTR1, dataGSTR3B, loadLog,
+      parseCache: [...parseCache.entries()],
+      savedAt: Date.now()
+    });
+  } catch(err){ /* storage unavailable/full — non-fatal, dashboard still works this session */ }
+}
+
+async function loadPersistedState(){
+  try{
+    const saved = await idbKeyval.get("gstData");
+    if (!saved) return false;
+    dataGSTR1 = saved.dataGSTR1 || [];
+    dataGSTR3B = saved.dataGSTR3B || [];
+    loadLog = saved.loadLog || [];
+    parseCache = new Map(saved.parseCache || []);
+    populateFilters();
+    renderAll();
+    const when = saved.savedAt ? new Date(saved.savedAt).toLocaleString() : "an earlier session";
+    setStatus(`Showing data saved from ${when}. Reconnecting…`);
+    return true;
+  } catch(err){ return false; }
+}
+
+// ---------------------------------------------------------------------------
+// Number / text helpers (mirrors the same rules used to read GST portal PDFs:
+// every amount has exactly 2 decimals, "-" means 0)
+// ---------------------------------------------------------------------------
+function isAmt(t){
+  if (t === "-") return true;
+  const s = t.replace(/,/g,"");
+  const p = s.indexOf(".");
+  if (p <= 0) return false;
+  if (s.length - p !== 3) return false;
+  return !isNaN(parseFloat(s)) && isFinite(s);
+}
+function parseAmt(t){
+  if (t === undefined || t === null) return 0;
+  const s = String(t).trim();
+  if (s === "" || s === "-") return 0;
+  const n = parseFloat(s.replace(/,/g,""));
+  return isNaN(n) ? 0 : n;
+}
+function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
+function inr(n){
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  const neg = n < 0; n = Math.abs(n);
+  const s = n.toFixed(2);
+  const [int, dec] = s.split(".");
+  let last3 = int.slice(-3), rest = int.slice(0,-3);
+  if (rest !== "") rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g,",") + ",";
+  return (neg?"-":"") + "₹" + rest + last3 + "." + dec;
+}
+function pct(n){ return (n===null||n===undefined||isNaN(n)) ? "—" : (n*100).toFixed(1)+"%"; }
+
+// ---------------------------------------------------------------------------
+// PDF -> text lines. One line = all text items on roughly the same row,
+// left-to-right, space-joined (mirrors how the row would read visually).
+// ---------------------------------------------------------------------------
+async function pdfToLines(arrayBuffer){
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  const lines = [];
+  for (let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items
+      .map(it => ({str: it.str, x: it.transform[4], y: it.transform[5]}))
+      .filter(it => it.str.trim() !== "");
+    items.sort((a,b) => (b.y - a.y) || (a.x - b.x));
+    const rows = [];
+    let cur = null;
+    const Y_TOL = 2.6;
+    for (const it of items){
+      if (!cur || Math.abs(cur.y - it.y) > Y_TOL){ cur = {y: it.y, items: []}; rows.push(cur); }
+      cur.items.push(it);
+    }
+    for (const row of rows){
+      row.items.sort((a,b) => a.x - b.x);
+      const text = row.items.map(i=>i.str.trim()).filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+      if (text) lines.push(text);
+    }
+  }
+  return lines;
+}
+
+// Find the first line containing (or, with a leading "^", starting with) `key`,
+// and return the first `n` amount-shaped tokens after it (same line + next
+// `look` lines — handles labels that wrap over 2-3 lines). Missing = all 0s.
+function numsAfter(lines, key, n, look=5){
+  const anchored = key.startsWith("^");
+  const k = (anchored ? key.slice(1) : key).toLowerCase();
+  const low = lines.map(l => l.toLowerCase());
+  let idx = -1;
+  for (let i=0;i<low.length;i++){
+    const l = low[i];
+    if (anchored ? l.trim().startsWith(k) : l.includes(k)) { idx = i; break; }
+  }
+  if (idx < 0) return new Array(n).fill(0);
+  const first = low[idx];
+  const rest0 = first.slice(first.indexOf(k) + k.length);
+  const chunk = [rest0, ...low.slice(idx+1, idx+1+look)].join(" ");
+  const toks = chunk.split(" ").filter(t => t !== "" && isAmt(t));
+  while (toks.length < n) toks.push("0");
+  return toks.slice(0,n).map(parseAmt);
+}
+
+// GSTR-1 section total row, e.g. Table 4A / 5 / 6A / 8 / 9B. Finds the section
+// title, then within the next ~9 lines the row starting with `rowPrefix`, and
+// reads the trailing run of amount tokens off the end of that row.
+// layout: "V5" -> {V,I,C,S,Ce} | "V3" -> {V,I,Ce} (inter-state only tables) | "V1" -> {V}
+function sectionAmts(lines, titleSubstr, rowPrefix, layout){
+  const low = lines.map(l => l.trim().toLowerCase());
+  const t = titleSubstr.toLowerCase(), p = rowPrefix.toLowerCase();
+  const empty = {V:0,I:0,C:0,S:0,Ce:0};
+  const hit = low.findIndex(l => l.includes(t));
+  if (hit < 0) return empty;
+  const window = low.slice(hit, hit+9);
+  const row = window.find(l => l.startsWith(p));
+  if (!row) return empty;
+  const toks = row.split(" ").filter(Boolean);
+  const rev = [...toks].reverse();
+  let runLen = 0;
+  while (runLen < rev.length && isAmt(rev[runLen])) runLen++;
+  let run = rev.slice(0, runLen).reverse().map(parseAmt);
+  const w = {V5:5, V3:3, V1:1}[layout];
+  if (run.length < w) run = new Array(w-run.length).fill(0).concat(run);
+  run = run.slice(-w);
+  if (layout==="V5") return {V:run[0],I:run[1],C:run[2],S:run[3],Ce:run[4]};
+  if (layout==="V3") return {V:run[0],I:run[1],C:0,S:0,Ce:run[2]};
+  return {V:run[0],I:0,C:0,S:0,Ce:0};
+}
+
+// Period (tax month + FY) — read from the PDF text first ("Period July" /
+// "Tax period August", "Year 2026-27" / "Financial year 2026-27"); falls
+// back to a MMYYYY suffix in the file name if the text isn't found.
+function readPeriod(lines, fileName){
+  const low = lines.map(l => l.trim().toLowerCase());
+  let monthNo = null;
+  for (const l of low){
+    if (l.startsWith("tax period ") || l.startsWith("period ")){
+      const w = l.split("period ")[1]?.trim().split(" ")[0] ?? "";
+      const mi = MONTH_KEYS.indexOf(w.slice(0,3));
+      if (mi >= 0){ monthNo = mi+1; break; }
+    }
+  }
+  let fy = null;
+  for (const l of low){
+    if (l.startsWith("financial year ") || l.startsWith("year ")){
+      const w = l.split("year ")[1]?.trim().split(" ")[0] ?? "";
+      if (/^\d{4}-\d{2}$/.test(w)){ fy = w; break; }
+    }
+  }
+  if (monthNo === null || fy === null){
+    const stem = fileName.replace(/\.pdf$/i,"");
+    const tail = stem.split("_").pop().slice(0,6);
+    const mm = parseInt(tail.slice(0,2),10), yyyy = parseInt(tail.slice(2,6),10);
+    if (!isNaN(mm) && !isNaN(yyyy)){
+      if (monthNo === null) monthNo = mm;
+      if (fy === null){
+        const sy = monthNo >= 4 ? yyyy : yyyy - 1;
+        fy = sy + "-" + String(sy+1).slice(-2);
+      }
+    }
+  }
+  return {monthNo, fy: fy ? "FY "+fy : null};
+}
+
+function readGstin(lines){
+  const toks = lines.slice(0,20).flatMap(l => l.split(" "));
+  for (const t of toks){
+    if (t.length===15 && /^[0-9]{2}/.test(t) && t === t.toUpperCase() && /[A-Z0-9]{15}/.test(t)) return t;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Field extraction — same definitions as the GST portal forms:
+//   GSTR-1: "Total Liability (Outward supplies other than Reverse charge)"
+//           row for sales value + IGST/CGST/SGST/Cess; Table 8 for nil/exempt.
+//   GSTR-3B: Table 3.1 for sales, Table 3.1(d) for reverse-charge inward,
+//            Table 4 for ITC (availed / reversed / net), Table 5 for
+//            exempt-nil-nonGST inward supplies.
+// ---------------------------------------------------------------------------
+function extractGSTR1(lines){
+  const tot = numsAfter(lines, "total liability (outward supplies other than reverse charge)", 5);
+  const nil = numsAfter(lines, "nil rated, exempted and non gst outward supplies", 1);
+  return {
+    TotalValue: tot[0], NilExemptValue: nil[0], TaxableValue: round2(tot[0]-nil[0]),
+    IGST: tot[1], CGST: tot[2], SGST: tot[3], Cess: tot[4],
+    TotalTax: round2(tot[1]+tot[2]+tot[3]+tot[4])
+  };
+}
+
+function extractGSTR3B(lines){
+  const n5 = (k)=>numsAfter(lines,k,5);
+  const n4 = (k)=>numsAfter(lines,k,4);
+  const sum4 = (rows)=>[0,1,2,3].map(i => round2(rows.reduce((s,r)=>s+r[i],0)));
+  const a = n5("(a) outward taxable supplies");
+  const b = n5("(b) outward taxable supplies (zero rated)");
+  const c = n5("other outward supplies (nil rated, exempted)");
+  const d = n5("inward supplies (liable to reverse charge)");
+  const e = n5("non-gst outward supplies");
+  const av = sum4([
+    n4("(1) import of goods"), n4("(2) import of services"),
+    n4("(3) inward supplies liable to reverse charge"), n4("(4) inward supplies from isd"),
+    n4("(5) all other itc")
+  ]);
+  const rv = sum4([ n4("(1) as per rules 38"), n4("(2) others") ]);
+  const nt = n4("net itc available");
+  const ie = n4("(2) ineligible itc under section 16(4)");
+  const t5 = numsAfter(lines, "from a supplier under composition scheme, exempt, nil rated supply", 2);
+  const ng = numsAfter(lines, "non gst supply", 2);
+  return {
+    S_TaxableValue: round2(a[0]+b[0]), S_NilExemptValue: round2(c[0]+e[0]),
+    S_TotalValue: round2(a[0]+b[0]+c[0]+e[0]),
+    S_IGST: round2(a[1]+b[1]), S_CGST: round2(a[2]+b[2]), S_SGST: round2(a[3]+b[3]), S_Cess: round2(a[4]+b[4]),
+    S_TotalTax: round2(a[1]+b[1]+a[2]+b[2]+a[3]+b[3]+a[4]+b[4]),
+    RCM_Value: d[0], RCM_Tax: round2(d[1]+d[2]+d[3]+d[4]),
+    ITC_IGST: av[0], ITC_CGST: av[1], ITC_SGST: av[2], ITC_Cess: av[3], ITC_Total: round2(av[0]+av[1]+av[2]+av[3]),
+    REV_IGST: rv[0], REV_CGST: rv[1], REV_SGST: rv[2], REV_Cess: rv[3], REV_Total: round2(rv[0]+rv[1]+rv[2]+rv[3]),
+    NET_IGST: nt[0], NET_CGST: nt[1], NET_SGST: nt[2], NET_Cess: nt[3], NET_Total: round2(nt[0]+nt[1]+nt[2]+nt[3]),
+    INELIG_Total: round2(ie[0]+ie[1]+ie[2]+ie[3]),
+    PUR_Exempt: round2(t5[0]+t5[1]), PUR_NonGST: round2(ng[0]+ng[1]),
+    PUR_Total: round2(t5[0]+t5[1]+ng[0]+ng[1]+d[0])
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Folder walking (File System Access API)
+// Expected layout under the chosen root:
+//   <root>\<ENTITY>\GSTR 1\<any FY folder>\*.pdf
+//   <root>\<ENTITY>\GSTR 3B\<any FY folder>\*.pdf
+// Entity = first-level folder name. Return type = read from folder/file name.
+// New PDFs / new FY folders / a brand-new entity folder need no code change —
+// "Rescan folder" picks them up.
+// ---------------------------------------------------------------------------
+async function* walkPdfs(handle, pathParts){
+  for await (const [name, child] of handle.entries()){
+    if (child.kind === "directory"){
+      if (name.startsWith(".") || name.startsWith("~")) continue;
+      yield* walkPdfs(child, [...pathParts, name]);
+    } else if (child.kind === "file" && name.toLowerCase().endsWith(".pdf") && !name.startsWith("~")){
+      yield {name, handle: child, pathParts};
+    }
+  }
+}
+
+function classify(pathParts, fileName){
+  const entity = (pathParts[0] || "").toUpperCase();
+  const relLower = pathParts.join("\\").toLowerCase();
+  const nameUpper = fileName.toUpperCase();
+  let ret = null;
+  if (relLower.includes("gstr 1") || nameUpper.startsWith("GSTR1") || nameUpper.startsWith("GSTR-1")) ret = "GSTR-1";
+  else if (relLower.includes("gstr 3b") || nameUpper.startsWith("GSTR3B") || nameUpper.startsWith("GSTR-3B")) ret = "GSTR-3B";
+  return {entity, ret};
+}
+
+// opts.mode: "incremental" (default) reuses cached results for any PDF whose
+//   path+size+lastModified hasn't changed — only new/changed PDFs are parsed.
+// opts.mode: "full" clears the cache first, so every PDF is re-read from disk.
+// opts.silent suppresses the "Scanning…" progress text (used for background checks).
+async function scanFolder(opts={}){
+  if (!dirHandle) return;
+  const mode = opts.mode === "full" ? "full" : "incremental";
+  if (!opts.silent) setStatus(mode === "full" ? "Reloading all files…" : "Checking for new files…");
+  if (mode === "full") parseCache.clear();
+
+  const found = [];
+  for await (const f of walkPdfs(dirHandle, [])) found.push(f);
+
+  const newLog = [];
+  const g1 = [], g3 = [];
+  const seenKeys = new Set();
+  let newCount = 0, reusedCount = 0;
+  let i = 0;
+  for (const f of found){
+    i++;
+    if (!opts.silent && i % 5 === 0) setStatus(`Reading PDFs… ${i}/${found.length}`);
+    const {entity, ret} = classify(f.pathParts, f.name);
+    const file = await f.handle.getFile();
+    if (!entity || !ret){
+      newLog.push({entity: entity||"?", ret: ret||"?", fy:"—", monthNo:null, file: f.name,
+        folder: f.pathParts.join(" / "), gstin:"—", status:"Skipped (not under an Entity/Return folder)",
+        modified: file.lastModified});
+      continue;
+    }
+    const cacheKey = f.pathParts.join("/") + "/" + f.name + "|" + file.size + "|" + file.lastModified;
+    seenKeys.add(cacheKey);
+    let row = parseCache.get(cacheKey);
+    if (row){
+      reusedCount++;
+    } else {
+      newCount++;
+      try{
+        const buf = await file.arrayBuffer();
+        const lines = await pdfToLines(buf);
+        if (!lines.length) throw new Error("empty");
+        const period = readPeriod(lines, f.name);
+        const gstin = readGstin(lines);
+        const fields = ret === "GSTR-1" ? extractGSTR1(lines) : extractGSTR3B(lines);
+        row = {entity, ret, monthNo: period.monthNo, fy: period.fy, gstin, fields,
+               modified: file.lastModified, ok: true};
+      } catch(err){
+        row = {entity, ret, monthNo:null, fy:null, gstin:null, fields:null, modified:file.lastModified, ok:false};
+      }
+      parseCache.set(cacheKey, row);
+    }
+    const status = !row.ok ? "Could not read PDF"
+                 : (row.monthNo===null || row.fy===null) ? "Period not found"
+                 : "Loaded";
+    newLog.push({entity, ret, fy: row.fy||"—", monthNo: row.monthNo, file: f.name,
+      folder: f.pathParts.join(" / "), gstin: row.gstin||"—", status, modified: row.modified});
+
+    if (row.ok && row.monthNo!==null && row.fy!==null){
+      const fyMonthNo = fyMonthNoOf(row.monthNo);
+      const rec = {Entity: entity, FY: row.fy, MonthNo: row.monthNo, FYMonthNo: fyMonthNo,
+                   GSTIN: row.gstin, SourceFile: f.name, Modified: row.modified, ...row.fields};
+      (ret === "GSTR-1" ? g1 : g3).push(rec);
+    }
+  }
+
+  // drop cache entries for PDFs that are no longer in the folder (moved/deleted)
+  for (const k of [...parseCache.keys()]) if (!seenKeys.has(k)) parseCache.delete(k);
+
+  // same Entity+FY+Month twice (re-downloaded copy) -> most recently modified wins
+  const dedupe = (arr) => {
+    const byKey = new Map();
+    for (const r of arr){
+      const k = r.Entity+"|"+r.FY+"|"+r.MonthNo;
+      const prev = byKey.get(k);
+      if (!prev || r.Modified > prev.Modified) byKey.set(k, r);
+    }
+    return [...byKey.values()];
+  };
+  dataGSTR1 = dedupe(g1);
+  dataGSTR3B = dedupe(g3);
+  loadLog = newLog.sort((a,b)=> a.entity.localeCompare(b.entity) || a.ret.localeCompare(b.ret) || (b.fy||"").localeCompare(a.fy||"") || (a.monthNo||0)-(b.monthNo||0));
+
+  populateFilters();
+  renderAll();
+  await persistState();
+  setStatus(`Connected — ${found.length} PDF(s) found · ${newCount} parsed, ${reusedCount} from cache · ${dataGSTR1.length+dataGSTR3B.length} loaded · ${new Date().toLocaleTimeString()}`);
+}
+
+// ---------------------------------------------------------------------------
+// Filters
+// ---------------------------------------------------------------------------
+function populateFilters(){
+  const entitySel = document.getElementById("entitySel");
+  const fySel = document.getElementById("fySel");
+  const entities = [...new Set([...dataGSTR1, ...dataGSTR3B].map(r=>r.Entity))].sort();
+  const fys = [...new Set([...dataGSTR1, ...dataGSTR3B].map(r=>r.FY))].sort().reverse();
+
+  const curEnt = entitySel.value, curFy = fySel.value;
+  entitySel.innerHTML = '<option value="ALL">All entities</option>' + entities.map(e=>`<option value="${e}">${e}</option>`).join("");
+  fySel.innerHTML = fys.map(f=>`<option value="${f}">${f}</option>`).join("");
+
+  if (entities.includes(curEnt)) entitySel.value = curEnt;
+  else if (entities.length) entitySel.value = entities[0]; // default to first entity, not "All"
+  if (fys.includes(curFy)) fySel.value = curFy;
+  else if (fys.length) fySel.value = fys[0];
+}
+
+function currentFilter(){
+  return {entity: document.getElementById("entitySel").value, fy: document.getElementById("fySel").value};
+}
+function filterRows(arr){
+  const {entity, fy} = currentFilter();
+  return arr.filter(r => (entity==="ALL" || r.Entity===entity) && r.FY===fy);
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation — mirrors the DAX measures (monthly, cumulative FY, variance)
+// ---------------------------------------------------------------------------
+function monthlySeries(rows, fields){
+  // returns {FYMonthNo: {field: sum}} for the 12 FY months, summing across entities if "All" selected
+  const out = {};
+  for (const m of MONTHS) out[m.fy] = Object.fromEntries(fields.map(f=>[f,null]));
+  for (const r of rows){
+    const bucket = out[r.FYMonthNo];
+    for (const f of fields) bucket[f] = (bucket[f] ?? 0) + (r[f] ?? 0);
+  }
+  return out;
+}
+function lastDataMonth(rowsA, rowsB){
+  const all = [...rowsA, ...rowsB].map(r=>r.FYMonthNo);
+  return all.length ? Math.max(...all) : 0;
+}
+function cumulative(monthly, fields, lastMonth){
+  const out = {};
+  for (const m of MONTHS){
+    out[m.fy] = {};
+    for (const f of fields){
+      if (m.fy > lastMonth){ out[m.fy][f] = null; continue; }
+      let sum = 0, any=false;
+      for (const mm of MONTHS){ if (mm.fy<=m.fy && monthly[mm.fy][f]!==null){ sum += monthly[mm.fy][f]; any=true; } }
+      out[m.fy][f] = any ? round2(sum) : 0;
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+function setStatus(msg){ document.getElementById("status").textContent = msg; }
+
+function drawChart(id, config){
+  const ctx = document.getElementById(id);
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, config);
+}
+
+function paletteLine(colors){ return {borderWidth:2, tension:.25, pointRadius:3}; }
+
+function renderAll(){
+  const hasData = dataGSTR1.length || dataGSTR3B.length;
+  document.getElementById("salesEmpty").style.display = hasData ? "none" : "block";
+  document.getElementById("salesContent").style.display = hasData ? "block" : "none";
+  document.getElementById("itcEmpty").style.display = hasData ? "none" : "block";
+  document.getElementById("itcContent").style.display = hasData ? "block" : "none";
+  renderLog();
+  if (!hasData) return;
+
+  const g1 = filterRows(dataGSTR1), g3 = filterRows(dataGSTR3B);
+  const lastM = lastDataMonth(g1, g3);
+  document.getElementById("asOfPill").textContent = "Latest filed: " + (lastM ? MONTHS.find(m=>m.fy===lastM).name : "no data for this selection");
+
+  renderSales(g1, g3, lastM);
+  renderItc(g3, lastM);
+}
+
+function renderSales(g1, g3, lastM){
+  const f1 = ["TotalValue","TaxableValue","NilExemptValue","IGST","CGST","SGST","Cess","TotalTax"];
+  const f3 = ["S_TotalValue","S_TaxableValue","S_NilExemptValue","S_IGST","S_CGST","S_SGST","S_Cess","S_TotalTax"];
+  const m1 = monthlySeries(g1, f1), m3 = monthlySeries(g3, f3);
+  const c1 = cumulative(m1, f1, lastM), c3 = cumulative(m3, f3, lastM);
+
+  const cum1Sales = c1[lastM]?.TotalValue ?? null, cum3Sales = c3[lastM]?.S_TotalValue ?? null;
+  const cum1Tax = c1[lastM]?.TotalTax ?? null, cum3Tax = c3[lastM]?.S_TotalTax ?? null;
+  const variance = (cum1Sales!==null && cum3Sales!==null) ? round2(cum1Sales-cum3Sales) : null;
+
+  setKpi("k1", cum1Sales); setKpi("k2", cum3Sales);
+  setKpi("k3", variance, variance===null?"":(Math.abs(variance)<=1?"green":"red"));
+  setKpi("k4", cum1Tax); setKpi("k5", cum3Tax);
+
+  const labels = MONTHS.map(m=>m.short);
+  drawChart("chartSalesMonthly", {type:"bar", data:{labels, datasets:[
+    {label:"GSTR-1", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>m1[m.fy].TotalValue)},
+    {label:"GSTR-3B", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>m3[m.fy].S_TotalValue)}
+  ]}, options:baseOpts()});
+
+  drawChart("chartSalesCum", {type:"line", data:{labels, datasets:[
+    {label:"GSTR-1 cum.", borderColor:"#1F3A5F", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>c1[m.fy].TotalValue), ...paletteLine()},
+    {label:"GSTR-3B cum.", borderColor:"#2A9D8F", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>c3[m.fy].S_TotalValue), ...paletteLine()}
+  ]}, options:baseOpts()});
+
+  drawChart("chartTax1", {type:"bar", data:{labels, datasets:[
+    {label:"IGST", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>m1[m.fy].IGST)},
+    {label:"CGST", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>m1[m.fy].CGST)},
+    {label:"SGST", backgroundColor:"#E9C46A", data:MONTHS.map(m=>m1[m.fy].SGST)}
+  ]}, options:stackOpts()});
+
+  drawChart("chartTax3", {type:"bar", data:{labels, datasets:[
+    {label:"IGST", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>m3[m.fy].S_IGST)},
+    {label:"CGST", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>m3[m.fy].S_CGST)},
+    {label:"SGST", backgroundColor:"#E9C46A", data:MONTHS.map(m=>m3[m.fy].S_SGST)}
+  ]}, options:stackOpts()});
+
+  // Monthly + cumulative table
+  let rows = "";
+  for (const m of MONTHS){
+    const v1 = m1[m.fy].TotalValue, v3 = m3[m.fy].S_TotalValue;
+    const status = statusBadge(v1, v3);
+    rows += `<tr><td>${m.name}</td><td>${fmt(v1)}</td><td>${fmt(v3)}</td><td>${fmt(diffOrNull(v1,v3))}</td>
+      <td>${status}</td><td>${fmt(c1[m.fy].TotalValue)}</td><td>${fmt(c3[m.fy].S_TotalValue)}</td>
+      <td>${fmt(diffOrNull(c1[m.fy].TotalValue,c3[m.fy].S_TotalValue))}</td></tr>`;
+  }
+  rows += `<tr><td>FY Total</td><td>${fmt(sumField(m1,"TotalValue"))}</td><td>${fmt(sumField(m3,"S_TotalValue"))}</td>
+    <td>${fmt(diffOrNull(sumField(m1,"TotalValue"),sumField(m3,"S_TotalValue")))}</td><td>—</td>
+    <td>${fmt(cum1Sales)}</td><td>${fmt(cum3Sales)}</td><td>${fmt(variance)}</td></tr>`;
+  document.getElementById("tblSales").innerHTML = `<table class="datatbl">
+    <tr><th>Month</th><th>GSTR-1 Sales</th><th>GSTR-3B Sales</th><th>Variance</th><th>Status</th>
+    <th>Cum. GSTR-1</th><th>Cum. GSTR-3B</th><th>Cum. Variance</th></tr>${rows}</table>`;
+
+  lastSalesCalc = {m1, m3, c1, c3, cum1Sales, cum3Sales, cum1Tax, cum3Tax, variance};
+
+  let rows2 = "";
+  for (const m of MONTHS){
+    rows2 += `<tr><td>${m.name}</td>
+      <td>${fmt(m1[m.fy].IGST)}</td><td>${fmt(m3[m.fy].S_IGST)}</td>
+      <td>${fmt(m1[m.fy].CGST)}</td><td>${fmt(m3[m.fy].S_CGST)}</td>
+      <td>${fmt(m1[m.fy].SGST)}</td><td>${fmt(m3[m.fy].S_SGST)}</td>
+      <td>${fmt(m1[m.fy].TotalTax)}</td><td>${fmt(m3[m.fy].S_TotalTax)}</td></tr>`;
+  }
+  document.getElementById("tblTax").innerHTML = `<table class="datatbl">
+    <tr><th>Month</th><th>GSTR-1 IGST</th><th>GSTR-3B IGST</th><th>GSTR-1 CGST</th><th>GSTR-3B CGST</th>
+    <th>GSTR-1 SGST</th><th>GSTR-3B SGST</th><th>GSTR-1 Tax</th><th>GSTR-3B Tax</th></tr>${rows2}</table>`;
+}
+
+function renderItc(g3, lastM){
+  const f3 = ["ITC_IGST","ITC_CGST","ITC_SGST","ITC_Cess","ITC_Total","NET_Total","REV_Total",
+              "PUR_Exempt","PUR_NonGST","RCM_Value","PUR_Total"];
+  const m3 = monthlySeries(g3, f3);
+  const c3 = cumulative(m3, f3, lastM);
+
+  const cumClaimed = c3[lastM]?.ITC_Total ?? null, cumEligible = c3[lastM]?.NET_Total ?? null;
+  const cumPurch = c3[lastM]?.PUR_Total ?? null;
+  const itcVar = (cumClaimed!==null && cumEligible!==null) ? round2(cumClaimed-cumEligible) : null;
+  const itcPct = (cumClaimed) ? cumEligible/cumClaimed : null;
+
+  setKpi("i1", cumClaimed); setKpi("i2", cumEligible);
+  setKpi("i3", itcVar, itcVar===null?"":(Math.abs(itcVar)<=1?"green":"amber"));
+  setKpi("i4", cumPurch);
+  document.getElementById("i5").textContent = pct(itcPct);
+
+  const labels = MONTHS.map(m=>m.short);
+  drawChart("chartItcMonthly", {type:"bar", data:{labels, datasets:[
+    {label:"ITC Claimed", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>m3[m.fy].ITC_Total)},
+    {label:"ITC Eligible", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>m3[m.fy].NET_Total)}
+  ]}, options:baseOpts()});
+
+  drawChart("chartItcCum", {type:"line", data:{labels, datasets:[
+    {label:"Claimed cum.", borderColor:"#1F3A5F", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>c3[m.fy].ITC_Total), ...paletteLine()},
+    {label:"Eligible cum.", borderColor:"#2A9D8F", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>c3[m.fy].NET_Total), ...paletteLine()}
+  ]}, options:baseOpts()});
+
+  drawChart("chartItcTax", {type:"bar", data:{labels, datasets:[
+    {label:"IGST", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>m3[m.fy].ITC_IGST)},
+    {label:"CGST", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>m3[m.fy].ITC_CGST)},
+    {label:"SGST", backgroundColor:"#E9C46A", data:MONTHS.map(m=>m3[m.fy].ITC_SGST)}
+  ]}, options:stackOpts()});
+
+  drawChart("chartPurchases", {type:"bar", data:{labels, datasets:[
+    {label:"Exempt/Nil (Tbl 5)", backgroundColor:"#1F3A5F", data:MONTHS.map(m=>m3[m.fy].PUR_Exempt)},
+    {label:"Non-GST (Tbl 5)", backgroundColor:"#E9C46A", data:MONTHS.map(m=>m3[m.fy].PUR_NonGST)},
+    {label:"Reverse charge 3.1(d)", backgroundColor:"#2A9D8F", data:MONTHS.map(m=>m3[m.fy].RCM_Value)}
+  ]}, options:stackOpts()});
+
+  let rows = "";
+  for (const m of MONTHS){
+    const claimed = m3[m.fy].ITC_Total, eligible = m3[m.fy].NET_Total;
+    const status = itcBadge(claimed, eligible);
+    rows += `<tr><td>${m.name}</td><td>${fmt(m3[m.fy].PUR_Total)}</td><td>${fmt(claimed)}</td>
+      <td>${fmt(m3[m.fy].REV_Total)}</td><td>${fmt(eligible)}</td><td>${fmt(diffOrNull(claimed,eligible))}</td>
+      <td>${status}</td><td>${fmt(c3[m.fy].ITC_Total)}</td><td>${fmt(c3[m.fy].NET_Total)}</td></tr>`;
+  }
+  rows += `<tr><td>FY Total</td><td>${fmt(sumField(m3,"PUR_Total"))}</td><td>${fmt(sumField(m3,"ITC_Total"))}</td>
+    <td>${fmt(sumField(m3,"REV_Total"))}</td><td>${fmt(sumField(m3,"NET_Total"))}</td>
+    <td>${fmt(diffOrNull(sumField(m3,"ITC_Total"),sumField(m3,"NET_Total")))}</td><td>—</td>
+    <td>${fmt(cumClaimed)}</td><td>${fmt(cumEligible)}</td></tr>`;
+  document.getElementById("tblItc").innerHTML = `<table class="datatbl">
+    <tr><th>Month</th><th>Purchases (3B)</th><th>ITC Claimed</th><th>ITC Reversed</th><th>ITC Eligible</th>
+    <th>Variance</th><th>Status</th><th>Cum. Claimed</th><th>Cum. Eligible</th></tr>${rows}</table>`;
+
+  lastItcCalc = {m3, c3, cumClaimed, cumEligible, cumPurch, itcVar, itcPct};
+}
+
+function renderLog(){
+  const rows = loadLog.map(r => {
+    const cls = r.status==="Loaded" ? "status-ok" : r.status.startsWith("Could") ? "status-bad" : "status-pend";
+    return `<tr><td>${r.entity}</td><td>${r.ret}</td><td>${r.fy}</td><td>${r.monthNo??"—"}</td>
+      <td>${r.file}</td><td>${r.gstin}</td><td class="${cls}">${r.status}</td></tr>`;
+  }).join("");
+  document.getElementById("tblLog").innerHTML = loadLog.length
+    ? `<table class="datatbl"><tr><th>Entity</th><th>Return</th><th>FY</th><th>Month#</th><th>File</th><th>GSTIN</th><th>Status</th></tr>${rows}</table>`
+    : `<p style="padding:20px;color:var(--sub);">No PDFs found yet. Connect a folder above.</p>`;
+}
+
+// ---- small render helpers ----
+function fmt(n){ return n===null||n===undefined ? "—" : inr(n); }
+function diffOrNull(a,b){ return (a===null||a===undefined||b===null||b===undefined) ? null : round2(a-b); }
+function sumField(monthly, f){ let any=false, s=0; for (const m of MONTHS){ if (monthly[m.fy][f]!==null){s+=monthly[m.fy][f]; any=true;} } return any? round2(s): null; }
+function setKpi(id, val, cls){
+  const el = document.getElementById(id);
+  el.textContent = fmt(val);
+  el.className = "value" + (cls ? " "+cls : "");
+}
+function statusBadge(a,b){
+  if (a===null && b===null) return "";
+  if (a===null) return '<span class="badge amber">GSTR-1 pending</span>';
+  if (b===null) return '<span class="badge amber">GSTR-3B pending</span>';
+  return Math.abs(a-b)<=1 ? '<span class="badge green">Matched</span>' : '<span class="badge red">Mismatch</span>';
+}
+function itcBadge(c,e){
+  if (c===null) return "";
+  return Math.abs(c-e)<=1 ? '<span class="badge green">Fully eligible</span>' : '<span class="badge amber">Reversed/restricted</span>';
+}
+function statusText(a,b){
+  if (a===null && b===null) return "";
+  if (a===null) return "GSTR-1 pending";
+  if (b===null) return "GSTR-3B pending";
+  return Math.abs(a-b)<=1 ? "Matched" : "Mismatch";
+}
+function itcStatusText(c,e){
+  if (c===null) return "";
+  return Math.abs(c-e)<=1 ? "Fully eligible" : "Reversed/restricted";
+}
+function baseOpts(){ return {responsive:true, maintainAspectRatio:false, plugins:{legend:{position:"bottom", labels:{boxWidth:12,font:{size:11}}}}, scales:{y:{ticks:{callback:v=>(v/1000)+"k"}}}}; }
+function stackOpts(){ const o = baseOpts(); o.scales.x = {stacked:true}; o.scales.y.stacked = true; return o; }
+
+// ---------------------------------------------------------------------------
+// Excel export (SheetJS) — builds a workbook from the figures already on
+// screen, so it always matches the Entity/FY currently selected.
+// ---------------------------------------------------------------------------
+function exportExcel(page){
+  if (typeof XLSX === "undefined"){
+    alert("The Excel export library failed to load — check your internet connection (it's loaded from a CDN) and try again.");
+    return;
+  }
+  const {entity, fy} = currentFilter();
+  const entLabel = entity === "ALL" ? "All entities" : entity;
+  const today = new Date().toLocaleString();
+  const safe = (s) => String(s).replace(/[^A-Za-z0-9]+/g, "");
+  const wb = XLSX.utils.book_new();
+
+  if (page === "sales"){
+    if (!lastSalesCalc){ alert("No data to export yet — connect your GST folder first."); return; }
+    const {m1, m3, c1, c3, cum1Sales, cum3Sales, variance} = lastSalesCalc;
+
+    const rows1 = [
+      ["GST Tracker — Sales Comparison"],
+      [`Entity: ${entLabel}`, `FY: ${fy}`, `Generated: ${today}`], [],
+      ["Month","GSTR-1 Sales","GSTR-3B Sales","Variance","Status","Cum GSTR-1","Cum GSTR-3B","Cum Variance"]
+    ];
+    for (const m of MONTHS){
+      const v1 = m1[m.fy].TotalValue, v3 = m3[m.fy].S_TotalValue;
+      rows1.push([m.name, v1, v3, diffOrNull(v1,v3), statusText(v1,v3),
+        c1[m.fy].TotalValue, c3[m.fy].S_TotalValue, diffOrNull(c1[m.fy].TotalValue, c3[m.fy].S_TotalValue)]);
+    }
+    rows1.push(["FY Total", sumField(m1,"TotalValue"), sumField(m3,"S_TotalValue"),
+      diffOrNull(sumField(m1,"TotalValue"), sumField(m3,"S_TotalValue")), "",
+      cum1Sales, cum3Sales, variance]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows1), "Sales Summary");
+
+    const rows2 = [
+      ["GST Tracker — Tax Breakup"], [`Entity: ${entLabel}`, `FY: ${fy}`], [],
+      ["Month","GSTR-1 IGST","GSTR-3B IGST","GSTR-1 CGST","GSTR-3B CGST","GSTR-1 SGST","GSTR-3B SGST","GSTR-1 Tax","GSTR-3B Tax"]
+    ];
+    for (const m of MONTHS){
+      rows2.push([m.name, m1[m.fy].IGST, m3[m.fy].S_IGST, m1[m.fy].CGST, m3[m.fy].S_CGST,
+        m1[m.fy].SGST, m3[m.fy].S_SGST, m1[m.fy].TotalTax, m3[m.fy].S_TotalTax]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows2), "Tax Breakup");
+
+    XLSX.writeFile(wb, `GST_${safe(entLabel)}_${safe(fy)}_Sales.xlsx`);
+  }
+
+  if (page === "itc"){
+    if (!lastItcCalc){ alert("No data to export yet — connect your GST folder first."); return; }
+    const {m3, c3, cumClaimed, cumEligible} = lastItcCalc;
+
+    const rows1 = [
+      ["GST Tracker — Purchases & ITC"],
+      [`Entity: ${entLabel}`, `FY: ${fy}`, `Generated: ${today}`], [],
+      ["Month","Purchases (3B)","ITC Claimed","ITC Reversed","ITC Eligible","Variance","Status","Cum Claimed","Cum Eligible"]
+    ];
+    for (const m of MONTHS){
+      const c = m3[m.fy].ITC_Total, e = m3[m.fy].NET_Total;
+      rows1.push([m.name, m3[m.fy].PUR_Total, c, m3[m.fy].REV_Total, e, diffOrNull(c,e), itcStatusText(c,e),
+        c3[m.fy].ITC_Total, c3[m.fy].NET_Total]);
+    }
+    rows1.push(["FY Total", sumField(m3,"PUR_Total"), sumField(m3,"ITC_Total"), sumField(m3,"REV_Total"), sumField(m3,"NET_Total"),
+      diffOrNull(sumField(m3,"ITC_Total"), sumField(m3,"NET_Total")), "", cumClaimed, cumEligible]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows1), "ITC Summary");
+
+    const rows2 = [["Month","ITC IGST","ITC CGST","ITC SGST"]];
+    for (const m of MONTHS) rows2.push([m.name, m3[m.fy].ITC_IGST, m3[m.fy].ITC_CGST, m3[m.fy].ITC_SGST]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows2), "ITC Tax Breakup");
+
+    const rows3 = [["Month","Exempt/Nil (Table 5)","Non-GST (Table 5)","Reverse Charge 3.1(d)","Total Purchases"]];
+    for (const m of MONTHS) rows3.push([m.name, m3[m.fy].PUR_Exempt, m3[m.fy].PUR_NonGST, m3[m.fy].RCM_Value, m3[m.fy].PUR_Total]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows3), "Purchases Breakup");
+
+    XLSX.writeFile(wb, `GST_${safe(entLabel)}_${safe(fy)}_ITC.xlsx`);
+  }
+
+  if (page === "check"){
+    const rows = [["Entity","Return","FY","Month#","File","GSTIN","Status"]];
+    for (const r of loadLog) rows.push([r.entity, r.ret, r.fy, r.monthNo, r.file, r.gstin, r.status]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Data Check");
+    XLSX.writeFile(wb, `GST_DataCheck_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PDF export — builds a clean, text-based printable page from the figures
+// and chart images currently on screen, then opens the browser's print
+// dialog ("Save as PDF" / "Microsoft Print to PDF" works on every platform).
+// ---------------------------------------------------------------------------
+function escHtml(s){ return String(s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function buildPrintArea(page){
+  const {entity, fy} = currentFilter();
+  const entLabel = entity === "ALL" ? "All entities" : entity;
+  let title, chartIds, tableHtml;
+  if (page === "sales"){
+    title = "Sales Comparison — GSTR-1 vs GSTR-3B";
+    chartIds = ["chartSalesMonthly","chartSalesCum","chartTax1","chartTax3"];
+    tableHtml = document.getElementById("tblSales").innerHTML + "<br><br>" + document.getElementById("tblTax").innerHTML;
+  } else if (page === "itc"){
+    title = "Purchases & ITC";
+    chartIds = ["chartItcMonthly","chartItcCum","chartItcTax","chartPurchases"];
+    tableHtml = document.getElementById("tblItc").innerHTML;
+  } else {
+    title = "Data Check";
+    chartIds = [];
+    tableHtml = document.getElementById("tblLog").innerHTML;
+  }
+  const imgs = chartIds.map(id=>{
+    const c = document.getElementById(id);
+    if (!c) return "";
+    try { return `<img src="${c.toDataURL("image/png",1.0)}" class="printChart">`; } catch(err){ return ""; }
+  }).join("");
+  document.getElementById("printArea").innerHTML = `
+    <div class="printHead">
+      <h1>GST Tracker — ${escHtml(title)}</h1>
+      <div class="printMeta">Entity: <b>${escHtml(entLabel)}</b> &nbsp;|&nbsp; Financial Year: <b>${escHtml(fy||"—")}</b> &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
+    </div>
+    <div class="printCharts">${imgs}</div>
+    ${tableHtml}
+  `;
+  document.title = `GST ${entLabel} ${fy||""} ${title}`.replace(/\s+/g," ").trim();
+}
+
+function downloadPDF(page){
+  buildPrintArea(page);
+  document.body.classList.add("printing-pdf");
+  setTimeout(()=>{
+    window.print();
+    document.body.classList.remove("printing-pdf");
+  }, 50); // lets the print layout settle before the dialog opens
+}
+
+// ---------------------------------------------------------------------------
+// Connect / rescan / persistence
+// ---------------------------------------------------------------------------
+async function connectFolder(){
+  if (!window.showDirectoryPicker){
+    alert("This browser doesn't support folder access. Please open this file in Chrome or Microsoft Edge on a desktop computer.");
+    return;
+  }
+  try{
+    dirHandle = await window.showDirectoryPicker();
+    await idbKeyval.set("gstRootHandle", dirHandle);
+    document.getElementById("rescanBtn").style.display = "inline-block";
+    document.getElementById("reloadAllBtn").style.display = "inline-block";
+    await scanFolder({mode:"incremental"}); // reuses any cache already saved for this folder
+  } catch(err){
+    if (err.name !== "AbortError") setStatus("Could not open folder: "+err.message);
+  }
+}
+
+async function tryReconnect(){
+  const hadCache = await loadPersistedState(); // show last session's data immediately, if any
+  try{
+    const handle = await idbKeyval.get("gstRootHandle");
+    if (!handle){
+      if (!hadCache) setStatus("Not connected");
+      return;
+    }
+    const perm = await handle.queryPermission({mode:"read"});
+    if (perm === "granted"){
+      dirHandle = handle;
+      document.getElementById("rescanBtn").style.display = "inline-block";
+      document.getElementById("reloadAllBtn").style.display = "inline-block";
+      await scanFolder({mode:"incremental", silent: hadCache}); // quietly pick up anything new
+    } else if (hadCache){
+      setStatus("Showing last saved data — click Connect to re-grant folder access and check for new files.");
+    } else {
+      setStatus("Not connected");
+    }
+  } catch(err){ /* no stored handle yet */ }
+}
+
+document.getElementById("connectBtn").addEventListener("click", connectFolder);
+document.getElementById("rescanBtn").addEventListener("click", ()=>scanFolder({mode:"incremental"}));
+document.getElementById("reloadAllBtn").addEventListener("click", ()=>{
+  if (confirm("Re-parse every PDF from scratch? This can take a while for a large folder.")){
+    scanFolder({mode:"full"});
+  }
+});
+document.getElementById("entitySel").addEventListener("change", renderAll);
+document.getElementById("fySel").addEventListener("change", renderAll);
+document.getElementById("autoRefresh").addEventListener("change", (e)=>{
+  if (e.target.checked){
+    window._autoTimer = setInterval(()=>{ if (dirHandle) scanFolder({mode:"incremental", silent:true}); }, 60000);
+  } else {
+    clearInterval(window._autoTimer);
+  }
+});
+document.querySelectorAll("nav .tab").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav .tab").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    document.getElementById("page-"+btn.dataset.page).classList.add("active");
+  });
+});
+
+tryReconnect();
+</script>
+</body>
+</html>
